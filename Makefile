@@ -2,10 +2,21 @@ SHELL    := /usr/bin/env bash -Eeu -o pipefail
 GITROOT  := $(shell git rev-parse --show-toplevel || pwd || echo '.')
 PRE_PUSH := ${GITROOT}/.git/hooks/pre-push
 
+export PATH := ${GITROOT}/.bin:${PATH}
+
 .DEFAULT_GOAL := help
 .PHONY: help
 help: githooks ## display this help documents
 	@grep -E '^[0-9a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-40s\033[0m %s\n", $$1, $$2}'
+
+.PHONY: setup
+setup: githooks ## Setup tools for development
+	# == SETUP =====================================================
+	# direnv
+	direnv allow .
+	# golangci-lint
+	golangci-lint --version
+	# --------------------------------------------------------------
 
 .PHONY: githooks
 githooks:
@@ -13,12 +24,14 @@ githooks:
 
 .PHONY: lint
 lint:  ## Run golangci-lint after go mod tidy
+	# ref. https://github.com/secretlint/secretlint
+	docker run -v "`pwd`:`pwd`" -w "`pwd`" --rm secretlint/secretlint secretlint "**/*"
 	# tidy
 	go mod tidy
 	git diff --exit-code go.mod go.sum
 	# lint
-	# cf. https://golangci-lint.run/usage/linters/
-	./.bin/golangci-lint run --fix --sort-results
+	# ref. https://golangci-lint.run/usage/linters/
+	golangci-lint run --fix --sort-results
 	git diff --exit-code
 
 .PHONY: test
