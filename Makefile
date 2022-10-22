@@ -2,7 +2,7 @@ SHELL    := /usr/bin/env bash -Eeu -o pipefail
 GITROOT  := $(shell git rev-parse --show-toplevel || pwd || echo '.')
 PRE_PUSH := ${GITROOT}/.git/hooks/pre-push
 
-export PATH := ${GITROOT}/.bin:${PATH}
+export PATH := ${GITROOT}/.local/bin:${GITROOT}/.bin:${PATH}
 
 .DEFAULT_GOAL := help
 .PHONY: help
@@ -20,10 +20,15 @@ setup: githooks ## Setup tools for development
 
 .PHONY: githooks
 githooks:
-	@[[ -f "${PRE_PUSH}" ]] || cp -ai "${GITROOT}/.githooks/pre-push" "${PRE_PUSH}"
+	@[[ -f "${PRE_PUSH}" ]] || cp -aiv "${GITROOT}/.githooks/pre-push" "${PRE_PUSH}"
+
+.PHONY: clean
+clean:  ## Clean up chace, etc
+		go clean -x -cache -testcache -modcache -fuzzcache
+		golangci-lint cache clean
 
 .PHONY: lint
-lint:  ## Run golangci-lint after go mod tidy
+lint:  ## Run secretlint, go mod tidy, golangci-lint
 	# ref. https://github.com/secretlint/secretlint
 	docker run -v "`pwd`:`pwd`" -w "`pwd`" --rm secretlint/secretlint secretlint "**/*"
 	# tidy
