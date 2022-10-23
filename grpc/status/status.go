@@ -4,25 +4,37 @@ import (
 	"fmt"
 
 	"golang.org/x/xerrors"
-	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
-// Status
+// Status is a custom gRPC status with *google.golang.org/grpc/status.Status and error inside.
 //
 // nolint: errname
 type Status struct {
-	code  codes.Code
-	err   error
-	frame xerrors.Frame
+	grpcStatus *status.Status
+	err        error
+	frame      xerrors.Frame
 }
 
-// Error.
-func Error(code codes.Code, err error) *Status {
+// New returns *github.com/kunitsuinc/grpcutil.go/grpc/status.Status.
+func New(grpcStatus *status.Status, err error) *Status {
 	return &Status{
-		code:  code,
-		err:   err,
-		frame: xerrors.Caller(1),
+		grpcStatus: grpcStatus,
+		err:        err,
+		frame:      xerrors.Caller(1),
 	}
+}
+
+func NewWithCallerSkip(grpcStatus *status.Status, err error, skip int) *Status {
+	return &Status{
+		grpcStatus: grpcStatus,
+		err:        err,
+		frame:      xerrors.Caller(skip),
+	}
+}
+
+func (e *Status) GRPCStatus() *status.Status {
+	return e.grpcStatus
 }
 
 func (e *Status) Error() string {
