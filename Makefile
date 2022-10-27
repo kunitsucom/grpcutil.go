@@ -7,7 +7,7 @@ export PATH := ${GITROOT}/.local/bin:${GITROOT}/.bin:${PATH}
 .DEFAULT_GOAL := help
 .PHONY: help
 help: githooks ## display this help documents
-	@grep -E '^[0-9a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-40s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[0-9a-zA-Z_-]+:.*?## .*$$' ${MAKEFILE_LIST} | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-40s\033[0m %s\n", $$1, $$2}'
 
 .PHONY: setup
 setup: githooks ## Setup tools for development
@@ -24,8 +24,8 @@ githooks:
 
 .PHONY: clean
 clean:  ## Clean up chace, etc
-		go clean -x -cache -testcache -modcache -fuzzcache
-		golangci-lint cache clean
+	go clean -x -cache -testcache -modcache -fuzzcache
+	golangci-lint cache clean
 
 .PHONY: lint
 lint:  ## Run secretlint, go mod tidy, golangci-lint
