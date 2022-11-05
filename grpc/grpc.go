@@ -31,7 +31,7 @@ func GRPCHandler(grpcServer *grpc.Server, grpcGatewayHandler http.Handler, http2
 
 type server struct {
 	httpServer            *http.Server
-	signalChan            chan os.Signal
+	signalChannel         chan os.Signal
 	continueSignalHandler func(sig os.Signal) bool
 	shutdownTimeout       time.Duration
 	shutdownErrorHandler  func(err error)
@@ -40,11 +40,15 @@ type server struct {
 type ServeOption func(s *server)
 
 func WithSignalChannel(signalChan chan os.Signal) ServeOption {
-	return func(s *server) { s.signalChan = signalChan }
+	return func(s *server) { s.signalChannel = signalChan }
 }
 
 func WithContinueSignalHandler(continueSignalHandler func(sig os.Signal) bool) ServeOption {
 	return func(s *server) { s.continueSignalHandler = continueSignalHandler }
+}
+
+func WithShutdownTimeout(shutdownTimeout time.Duration) ServeOption {
+	return func(s *server) { s.shutdownTimeout = shutdownTimeout }
 }
 
 func WithShutdownErrorHandler(shutdownErrorHandler func(err error)) ServeOption {
@@ -63,7 +67,7 @@ func ServeGRPC(
 ) error {
 	s := &server{
 		httpServer:            &http.Server{ReadHeaderTimeout: 10 * time.Second},
-		signalChan:            signalz.Notify(make(chan os.Signal, 1), syscall.SIGHUP, os.Interrupt, syscall.SIGTERM),
+		signalChannel:         signalz.Notify(make(chan os.Signal, 1), syscall.SIGHUP, os.Interrupt, syscall.SIGTERM),
 		continueSignalHandler: func(sig os.Signal) bool { return sig == syscall.SIGHUP },
 		shutdownTimeout:       10 * time.Second,
 		shutdownErrorHandler:  func(err error) { log.Println("shutdown:", err) },
@@ -100,7 +104,7 @@ func ServeGRPC(
 			if err := shutdown(); err != nil {
 				s.shutdownErrorHandler(err)
 			}
-		case sig := <-s.signalChan:
+		case sig := <-s.signalChannel:
 			if s.continueSignalHandler(sig) {
 				continue
 			}
