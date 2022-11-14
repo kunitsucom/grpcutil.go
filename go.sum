@@ -6,8 +6,8 @@ github.com/google/go-cmp v0.5.5/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/
 github.com/google/go-cmp v0.5.9 h1:O2Tfq5qg4qc4AmwVlvv0oLiVAGB7enBSJ2x2DqQFi38=
 github.com/grpc-ecosystem/grpc-gateway/v2 v2.13.0 h1:fi9bGIUJOGzzrHBbP8NWbTfNC5fKO6X7kFw40TOqGB8=
 github.com/grpc-ecosystem/grpc-gateway/v2 v2.13.0/go.mod h1:uY3Aurq+SxwQCpdX91xZ9CgxIMT1EsYtcidljXufYIY=
-github.com/kunitsuinc/util.go v0.0.18 h1:oGK7+PYvscQeUbqEp5MPTbv9BnZ457OEBs29+oz0FiQ=
-github.com/kunitsuinc/util.go v0.0.18/go.mod h1:irJypLuz+bCSazt3qXosGo6/KDmz66KEOYQylChHn/w=
+github.com/kunitsuinc/util.go v0.0.20 h1:QtUv2r8Ii3l8Bc7BbtSB2a0jz499jIfBfCTZ0B114NM=
+github.com/kunitsuinc/util.go v0.0.20/go.mod h1:irJypLuz+bCSazt3qXosGo6/KDmz66KEOYQylChHn/w=
 golang.org/x/net v0.1.0 h1:hZ/3BUoy5aId7sCpA/Tc5lt8DkFgdVS2onTpJsZ/fl0=
 golang.org/x/net v0.1.0/go.mod h1:Cx3nUiGt4eDBEyega/BKRp+/AlGL8hYe7U9odMt2Cco=
 golang.org/x/sys v0.1.0 h1:kunALQeHf1/185U1i0GOB/fy1IPRDDpuoOOqRReG57U=
