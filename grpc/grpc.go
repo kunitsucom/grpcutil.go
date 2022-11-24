@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -17,7 +16,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-func GRPCHandler(grpcServer *grpc.Server, grpcGatewayHandler http.Handler, http2Server *http2.Server) http.Handler {
+func ServerWithGatewayHandler(grpcServer *grpc.Server, grpcGatewayHandler http.Handler, http2Server *http2.Server) http.Handler {
 	return h2c.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// NOTE: cf. https://github.com/grpc/grpc-go/issues/555#issuecomment-443293451
 		// NOTE: cf. https://github.com/philips/grpc-gateway-example/issues/22#issuecomment-490733965
@@ -29,44 +28,41 @@ func GRPCHandler(grpcServer *grpc.Server, grpcGatewayHandler http.Handler, http2
 	}), http2Server)
 }
 
-type server struct {
-	httpServer            *http.Server
+type ServerWithGateway struct {
+	httpServer     *http.Server
+	grpcServer     *grpc.Server
+	grpcGatewayMux *http.ServeMux
+
 	signalChannel         chan os.Signal
 	continueSignalHandler func(sig os.Signal) bool
 	shutdownTimeout       time.Duration
 	shutdownErrorHandler  func(err error)
 }
 
-type ServeOption func(s *server)
+type ServerWithGatewayOption func(s *ServerWithGateway)
 
-func WithSignalChannel(signalChan chan os.Signal) ServeOption {
-	return func(s *server) { s.signalChannel = signalChan }
+func WithSignalChannel(signalChannel chan os.Signal) ServerWithGatewayOption {
+	return func(s *ServerWithGateway) { s.signalChannel = signalChannel }
 }
 
-func WithContinueSignalHandler(continueSignalHandler func(sig os.Signal) bool) ServeOption {
-	return func(s *server) { s.continueSignalHandler = continueSignalHandler }
+func WithContinueSignalHandler(continueSignalHandler func(sig os.Signal) bool) ServerWithGatewayOption {
+	return func(s *ServerWithGateway) { s.continueSignalHandler = continueSignalHandler }
 }
 
-func WithShutdownTimeout(shutdownTimeout time.Duration) ServeOption {
-	return func(s *server) { s.shutdownTimeout = shutdownTimeout }
+func WithShutdownTimeout(shutdownTimeout time.Duration) ServerWithGatewayOption {
+	return func(s *ServerWithGateway) { s.shutdownTimeout = shutdownTimeout }
 }
 
-func WithShutdownErrorHandler(shutdownErrorHandler func(err error)) ServeOption {
-	return func(s *server) { s.shutdownErrorHandler = shutdownErrorHandler }
+func WithShutdownErrorHandler(shutdownErrorHandler func(err error)) ServerWithGatewayOption {
+	return func(s *ServerWithGateway) { s.shutdownErrorHandler = shutdownErrorHandler }
 }
 
-// ServeGRPC serve gRPC Server with gRPC Gateway
-//
-//nolint:funlen,cyclop
-func ServeGRPC(
-	ctx context.Context,
-	l net.Listener,
-	grpcServer *grpc.Server,
-	grpcGatewayMux *http.ServeMux,
-	opts ...ServeOption,
-) error {
-	s := &server{
-		httpServer:            &http.Server{ReadHeaderTimeout: 10 * time.Second},
+func NewServerWithGateway(httpServer *http.Server, grpcServer *grpc.Server, grpcGatewayMux *http.ServeMux, opts ...ServerWithGatewayOption) *ServerWithGateway {
+	s := &ServerWithGateway{
+		httpServer:     httpServer,
+		grpcServer:     grpcServer,
+		grpcGatewayMux: grpcGatewayMux,
+
 		signalChannel:         signalz.Notify(make(chan os.Signal, 1), syscall.SIGHUP, os.Interrupt, syscall.SIGTERM),
 		continueSignalHandler: func(sig os.Signal) bool { return sig == syscall.SIGHUP },
 		shutdownTimeout:       10 * time.Second,
@@ -77,17 +73,19 @@ func ServeGRPC(
 		opt(s)
 	}
 
-	s.httpServer.Handler = GRPCHandler(grpcServer, grpcGatewayMux, &http2.Server{})
+	return s
+}
 
-	serve := func(errChan chan<- error) {
-		errChan <- s.httpServer.Serve(l)
-	}
+// ListenAndServe serve gRPC Server with gRPC Gateway.
+func (s *ServerWithGateway) ListenAndServe(
+	ctx context.Context,
+) error {
+	s.httpServer.Handler = ServerWithGatewayHandler(s.grpcServer, s.grpcGatewayMux, &http2.Server{})
 
-	serveErrChan := make(chan error, 1)
-	go serve(serveErrChan)
+	serve := func(errChan chan<- error) { errChan <- s.httpServer.ListenAndServe() }
 
 	shutdown := func() error {
-		grpcServer.GracefulStop()
+		s.grpcServer.GracefulStop()
 
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), s.shutdownTimeout)
 		defer cancel()
@@ -97,6 +95,9 @@ func ServeGRPC(
 
 		return nil
 	}
+
+	serveErrChan := make(chan error, 1)
+	go serve(serveErrChan)
 
 	for {
 		select {
