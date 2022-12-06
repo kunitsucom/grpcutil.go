@@ -7,11 +7,11 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
 	"syscall"
 	"time"
 
-	signalz "github.com/kunitsuinc/util.go/os/signal"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc"
@@ -66,12 +66,15 @@ func WithShutdownErrorHandler(shutdownErrorHandler func(err error)) ServerWithGa
 }
 
 func NewServerWithGateway(grpcServer *grpc.Server, grpcGatewayMux *http.ServeMux, opts ...ServerWithGatewayOption) *ServerWithGateway {
+	signalChannel := make(chan os.Signal, 1)
+	signal.Notify(signalChannel, syscall.SIGHUP, os.Interrupt, syscall.SIGTERM)
+
 	s := &ServerWithGateway{
 		httpServer:     &http.Server{ReadHeaderTimeout: 10 * time.Second},
 		grpcServer:     grpcServer,
 		grpcGatewayMux: grpcGatewayMux,
 
-		signalChannel:         signalz.Notify(make(chan os.Signal, 1), syscall.SIGHUP, os.Interrupt, syscall.SIGTERM),
+		signalChannel:         signalChannel,
 		continueSignalHandler: func(sig os.Signal) bool { return sig == syscall.SIGHUP },
 		shutdownTimeout:       10 * time.Second,
 		shutdownErrorHandler:  func(err error) { log.Println("shutdown:", err) },
