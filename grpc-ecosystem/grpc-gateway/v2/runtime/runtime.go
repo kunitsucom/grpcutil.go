@@ -15,8 +15,7 @@ type registerHandler = func(ctx context.Context, mux *gw_runtime.ServeMux, conn 
 func RegisterHandlers(ctx context.Context, mux *gw_runtime.ServeMux, conn *grpc.ClientConn, handlers ...registerHandler) error {
 	for _, handler := range handlers {
 		if err := handler(ctx, mux, conn); err != nil {
-			funcName := runtime.FuncForPC(reflect.ValueOf(handler).Pointer()).Name()
-			return fmt.Errorf("%s: %w", funcName, err)
+			return fmt.Errorf("%s: %w", runtime.FuncForPC(reflect.ValueOf(handler).Pointer()).Name(), err)
 		}
 	}
 
@@ -28,8 +27,7 @@ type registerHandlerFromEndpoint = func(ctx context.Context, mux *gw_runtime.Ser
 func RegisterHandlersFromEndpoint(ctx context.Context, mux *gw_runtime.ServeMux, endpoint string, opts []grpc.DialOption, handlers ...registerHandlerFromEndpoint) error {
 	for _, handler := range handlers {
 		if err := handler(ctx, mux, endpoint, opts); err != nil {
-			funcName := runtime.FuncForPC(reflect.ValueOf(handler).Pointer()).Name()
-			return fmt.Errorf("%s: %w", funcName, err)
+			return fmt.Errorf("%s: %w", runtime.FuncForPC(reflect.ValueOf(handler).Pointer()).Name(), err)
 		}
 	}
 

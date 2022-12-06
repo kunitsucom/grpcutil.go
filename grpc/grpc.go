@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -41,6 +42,13 @@ type ServerWithGateway struct {
 
 type ServerWithGatewayOption func(s *ServerWithGateway)
 
+// WithHTTPServer
+//
+// If *http.Server has (*http.Server).Handler, it is ignored by grpcz.ServerWithGateway.
+func WithHTTPServer(httpServer *http.Server) ServerWithGatewayOption {
+	return func(s *ServerWithGateway) { s.httpServer = httpServer }
+}
+
 func WithSignalChannel(signalChannel chan os.Signal) ServerWithGatewayOption {
 	return func(s *ServerWithGateway) { s.signalChannel = signalChannel }
 }
@@ -57,9 +65,9 @@ func WithShutdownErrorHandler(shutdownErrorHandler func(err error)) ServerWithGa
 	return func(s *ServerWithGateway) { s.shutdownErrorHandler = shutdownErrorHandler }
 }
 
-func NewServerWithGateway(httpServer *http.Server, grpcServer *grpc.Server, grpcGatewayMux *http.ServeMux, opts ...ServerWithGatewayOption) *ServerWithGateway {
+func NewServerWithGateway(grpcServer *grpc.Server, grpcGatewayMux *http.ServeMux, opts ...ServerWithGatewayOption) *ServerWithGateway {
 	s := &ServerWithGateway{
-		httpServer:     httpServer,
+		httpServer:     &http.Server{ReadHeaderTimeout: 10 * time.Second},
 		grpcServer:     grpcServer,
 		grpcGatewayMux: grpcGatewayMux,
 
@@ -73,16 +81,17 @@ func NewServerWithGateway(httpServer *http.Server, grpcServer *grpc.Server, grpc
 		opt(s)
 	}
 
+	s.httpServer.Handler = ServerWithGatewayHandler(s.grpcServer, s.grpcGatewayMux, &http2.Server{})
+
 	return s
 }
 
 // ListenAndServe serve gRPC Server with gRPC Gateway.
-func (s *ServerWithGateway) ListenAndServe(
+func (s *ServerWithGateway) Serve(
 	ctx context.Context,
+	l net.Listener,
 ) error {
-	s.httpServer.Handler = ServerWithGatewayHandler(s.grpcServer, s.grpcGatewayMux, &http2.Server{})
-
-	serve := func(errChan chan<- error) { errChan <- s.httpServer.ListenAndServe() }
+	serve := func(errChan chan<- error) { errChan <- s.httpServer.Serve(l) }
 
 	shutdown := func() error {
 		s.grpcServer.GracefulStop()
