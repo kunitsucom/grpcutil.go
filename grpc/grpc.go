@@ -65,7 +65,27 @@ func WithShutdownErrorHandler(shutdownErrorHandler func(err error)) ServerWithGa
 	return func(s *ServerWithGateway) { s.shutdownErrorHandler = shutdownErrorHandler }
 }
 
-func NewServerWithGateway(grpcServer *grpc.Server, grpcGatewayMux *http.ServeMux, opts ...ServerWithGatewayOption) *ServerWithGateway {
+// NewServerWithGateway returns grpc server instance with general shutdown handling.
+//
+// Example:
+//
+//	server := grpcz.NewServerWithGateway(
+//		grpcServer,
+//		mux,
+//		grpcz.WithSignalChannel(contextz.MustSignalChannel(ctx)),
+//		grpcz.WithContinueSignalHandler(func(sig os.Signal) bool {
+//			l.With(rec.String("signal", sig.String())).F().Debugf("caught signal: %s", sig)
+//			return sig == syscall.SIGHUP
+//		}),
+//		grpcz.WithShutdownErrorHandler(func(err error) {
+//			l.With(rec.Error(err), rec.ErrorStacktrace(err)).F().Errorf("shutdown error: %v", err)
+//		}),
+//	)
+func NewServerWithGateway(
+	grpcServer *grpc.Server,
+	grpcGatewayMux *http.ServeMux,
+	opts ...ServerWithGatewayOption,
+) *ServerWithGateway {
 	signalChannel := make(chan os.Signal, 1)
 	signal.Notify(signalChannel, syscall.SIGHUP, os.Interrupt, syscall.SIGTERM)
 
